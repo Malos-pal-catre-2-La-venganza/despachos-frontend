@@ -1,0 +1,81 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "Dockerfile"
+      - "package.json"
+      - "package-lock.json"
+      - "k8s/**"
+      - ".github/workflows/deploy-frontend.yml"
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: 055446855440.dkr.ecr.us-east-1.amazonaws.com
+  EKS_CLUSTER: devops-eft-cluster
+  VITE_API_VENTAS_URL: http://a26d51459114d436aafa11810e4d7841-14156805.us-east-1.elb.amazonaws.com/api/v1/ventas
+  VITE_API_DESPACHOS_URL: http://af58031563e18484c925b9ecb6e7786a-901961501.us-east-1.elb.amazonaws.com/api/v1/despachos
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login en Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build y push imagen Frontend
+        run: |
+          docker build \
+            --build-arg VITE_API_VENTAS_URL=$VITE_API_VENTAS_URL \
+            --build-arg VITE_API_DESPACHOS_URL=$VITE_API_DESPACHOS_URL \
+            -t $ECR_REGISTRY/devops-eft-frontend:${{ github.sha }} \
+            -t $ECR_REGISTRY/devops-eft-frontend:latest .
+          docker push $ECR_REGISTRY/devops-eft-frontend:${{ github.sha }}
+          docker push $ECR_REGISTRY/devops-eft-frontend:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Instalar kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.30.0"
+
+      - name: Actualizar kubeconfig
+        run: aws eks update-kubeconfig --name $EKS_CLUSTER --region $AWS_REGION
+
+      - name: Aplicar manifest (por si cambió)
+        run: kubectl apply -f k8s/frontend.yaml
+
+      - name: Actualizar imagen en el clúster (rolling update)
+        run: kubectl set image deployment/frontend frontend=$ECR_REGISTRY/devops-eft-frontend:${{ github.sha }}
+
+      - name: Esperar a que el rollout termine
+        run: kubectl rollout status deployment/frontend --timeout=180s
