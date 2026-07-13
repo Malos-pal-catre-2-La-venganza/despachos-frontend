@@ -20,7 +20,7 @@ export const PruebaCards = () => {
           }}
         />
         <CardComponent
-          title="Revisar Ordenes de despacho 🚚"
+          title="Revisar Ordenes de despachoooooooooo"
           description="Consulta los despachos realizados, modifica los registros de intentos o cierra la orden"
           buttonText="Consultar"
           onClick={() => {
