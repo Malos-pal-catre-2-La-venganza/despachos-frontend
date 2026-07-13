@@ -11,7 +11,7 @@ export const PruebaCards = () => {
     <section>
       <div className="flex justify-center">
         <CardComponent
-          title="Consultar Ordenes de compraaaaaaa"
+          title="Consultar Ordenes de compraaaaaa"
           description="Revisa las últimas oc realizadas para generar su despacho"
           buttonText="Consultar"
           onClick={() => {
@@ -20,7 +20,7 @@ export const PruebaCards = () => {
           }}
         />
         <CardComponent
-          title="Revisar Ordenes de despachoooooooooo"
+          title="Revisar Ordenes de despachoo"
           description="Consulta los despachos realizados, modifica los registros de intentos o cierra la orden"
           buttonText="Consultar"
           onClick={() => {
